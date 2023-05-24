@@ -4,6 +4,8 @@ import { Trans } from "react-i18next";
 import { NavListProps, NavListState } from "./interface";
 import DeleteIcon from "../../../components/deleteIcon";
 import toast from "react-hot-toast";
+import CFI from "epub-cfi-resolver";
+import RecordLocation from "../../../utils/readUtils/recordLocation";
 class NavList extends React.Component<NavListProps, NavListState> {
   constructor(props: NavListProps) {
     super(props);
@@ -13,11 +15,11 @@ class NavList extends React.Component<NavListProps, NavListState> {
   }
   //跳转到图书的指定位置
   async handleJump(cfi: string) {
+    //书签跳转
     if (!cfi) {
       toast(this.props.t("Wrong bookmark"));
       return;
     }
-    console.log(cfi);
     let bookLocation;
     try {
       bookLocation = JSON.parse(cfi) || {};
@@ -26,16 +28,57 @@ class NavList extends React.Component<NavListProps, NavListState> {
         cfi: cfi,
       };
     }
-
-    await this.props.htmlBook.rendition.goToPosition(
-      JSON.stringify({
-        text: bookLocation.text,
-        chapterTitle: bookLocation.chapterTitle,
-        count: bookLocation.count,
-        percentage: bookLocation.percentage,
-        cfi: bookLocation.cfi,
-      })
-    );
+    //compatile wiht lower version(1.5.1)
+    if (bookLocation.cfi) {
+      await this.props.htmlBook.rendition.goToChapter(
+        bookLocation.chapterDocIndex,
+        bookLocation.chapterHref,
+        bookLocation.chapterTitle
+      );
+      let cfiObj = new CFI(bookLocation.cfi);
+      let pageArea = document.getElementById("page-area");
+      if (!pageArea) return;
+      let iframe = pageArea.getElementsByTagName("iframe")[0];
+      if (!iframe) return;
+      let doc: any = iframe.contentDocument;
+      if (!doc) {
+        return;
+      }
+      var bookmark = cfiObj.resolveLast(doc, {
+        ignoreIDs: true,
+      });
+      await this.props.htmlBook.rendition.goToNode(bookmark.node.parentElement);
+    } else {
+      await this.props.htmlBook.rendition.goToPosition(
+        JSON.stringify({
+          text: bookLocation.text,
+          chapterTitle: bookLocation.chapterTitle,
+          chapterDocIndex: bookLocation.chapterDocIndex,
+          chapterHref: bookLocation.chapterHref,
+          count: bookLocation.count,
+          percentage: bookLocation.percentage,
+          cfi: bookLocation.cfi,
+        })
+      );
+    }
+    this.handleDisplayBookmark();
+  }
+  handleDisplayBookmark() {
+    this.props.handleShowBookmark(false);
+    let bookLocation: {
+      text: string;
+      count: string;
+      chapterTitle: string;
+      chapterDocIndex: string;
+      chapterHref: string;
+      percentage: string;
+      cfi: string;
+    } = RecordLocation.getHtmlLocation(this.props.currentBook.key);
+    this.props.bookmarks.forEach((item) => {
+      if (item.cfi === JSON.stringify(bookLocation)) {
+        this.props.handleShowBookmark(true);
+      }
+    });
   }
   handleShowDelete = (index: number) => {
     this.setState({ deleteIndex: index });
@@ -85,8 +128,8 @@ class NavList extends React.Component<NavListProps, NavListState> {
             ) : null}
             <div
               className="book-bookmark-link"
-              onClick={() => {
-                this.handleJump(item.cfi);
+              onClick={async () => {
+                await this.handleJump(item.cfi);
               }}
               style={{ cursor: "pointer" }}
             >

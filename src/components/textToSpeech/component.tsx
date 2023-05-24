@@ -3,6 +3,10 @@ import { TextToSpeechProps, TextToSpeechState } from "./interface";
 import { Trans } from "react-i18next";
 import { speedList } from "../../constants/dropdownList";
 import StorageUtil from "../../utils/serviceUtils/storageUtil";
+import { sleep } from "../../utils/commonUtil";
+import EdgeUtil from "../../utils/serviceUtils/edgeUtil";
+import { isElectron } from "react-device-detect";
+import toast from "react-hot-toast";
 
 class TextToSpeech extends React.Component<
   TextToSpeechProps,
@@ -14,9 +18,13 @@ class TextToSpeech extends React.Component<
       isSupported: false,
       isAudioOn: false,
       voices: [],
+      edgeVoices: [],
+      nativeVoices: [],
+      nodeIndex: 0,
+      nodeList: [],
     };
   }
-  componentDidMount() {
+  async componentDidMount() {
     if ("speechSynthesis" in window) {
       this.setState({ isSupported: true });
     }
@@ -24,31 +32,56 @@ class TextToSpeech extends React.Component<
       window.speechSynthesis && window.speechSynthesis.cancel();
       this.setState({ isAudioOn: false });
     }
+    let synth = window.speechSynthesis;
+    synth.getVoices();
+    isElectron && this.setState({ edgeVoices: await EdgeUtil.getVoiceList() });
   }
   handleChangeAudio = () => {
     if (this.state.isAudioOn) {
       window.speechSynthesis.cancel();
+      EdgeUtil.pauseAudio();
       this.setState({ isAudioOn: false });
     } else {
-      const setSpeech = () => {
-        return new Promise((resolve, reject) => {
-          let synth = window.speechSynthesis;
-          let id;
+      this.handleStartSpeech();
+    }
+  };
+  handleStartSpeech = () => {
+    const setSpeech = () => {
+      return new Promise((resolve, reject) => {
+        let synth = window.speechSynthesis;
+        let id;
 
-          id = setInterval(() => {
-            if (synth.getVoices().length !== 0) {
-              resolve(synth.getVoices());
-              clearInterval(id);
-            } else {
-              this.setState({ isSupported: false });
-            }
-          }, 10);
-        });
-      };
+        id = setInterval(() => {
+          if (synth.getVoices().length !== 0) {
+            resolve(synth.getVoices());
+            clearInterval(id);
+          } else {
+            this.setState({ isSupported: false });
+          }
+        }, 10);
+      });
+    };
 
-      let s = setSpeech();
-      s.then((voices) => {
-        this.setState({ voices }, () => {
+    let s = setSpeech();
+    s.then(async (voices: any) => {
+      this.setState({ nativeVoices: voices });
+      this.setState(
+        {
+          voices: [
+            ...voices,
+            ...this.state.edgeVoices.map((item) => {
+              return {
+                name:
+                  item.FriendlyName.split("-")[1].trim() +
+                  " " +
+                  item.Gender +
+                  " " +
+                  item.FriendlyName.split(" ")[1],
+              };
+            }),
+          ],
+        },
+        () => {
           this.setState({ isAudioOn: true }, () => {
             this.handleAudio();
             if (
@@ -71,43 +104,100 @@ class TextToSpeech extends React.Component<
                 ]?.setAttribute("selected", "selected");
             }
           });
-        });
-      });
-    }
+        }
+      );
+    });
   };
   handleAudio = async () => {
-    let text = "";
+    if (StorageUtil.getReaderConfig("isSliding") === "yes") {
+      await sleep(1000);
+    }
+    if (this.state.nodeIndex === 0) {
+      this.setState(
+        { nodeList: this.props.htmlBook.rendition.visibleText() },
+        async () => {
+          await this.handleRead();
+        }
+      );
+    } else if (this.state.nodeIndex === this.state.nodeList.length) {
+      await this.props.htmlBook.rendition.next();
+      this.setState({ nodeIndex: 0 }, async () => {
+        await this.handleAudio();
+      });
+    } else {
+      await this.handleRead();
+    }
+  };
+  async handleRead() {
+    let currentText = this.state.nodeList[this.state.nodeIndex];
 
-    text = await this.props.htmlBook.rendition.visibleText();
-    text = text
+    let style = "background: #f3a6a68c";
+    this.props.htmlBook.rendition.highlightNode(currentText, style);
+    currentText = currentText
       .replace(/\s\s/g, "")
       .replace(/\r/g, "")
       .replace(/\n/g, "")
       .replace(/\t/g, "")
       .replace(/\f/g, "");
-    this.handleSpeech(
-      text,
+    let nextText = "";
+    if (this.state.nodeIndex < this.state.nodeList.length - 1) {
+      nextText = this.state.nodeList[this.state.nodeIndex + 1];
+      nextText = nextText
+        .replace(/\s\s/g, "")
+        .replace(/\r/g, "")
+        .replace(/\n/g, "")
+        .replace(/\t/g, "")
+        .replace(/\f/g, "");
+    }
+    await this.handleSpeech(
+      currentText,
+      nextText,
       StorageUtil.getReaderConfig("voiceIndex") || 0,
       StorageUtil.getReaderConfig("voiceSpeed") || 1
     );
-  };
-  handleSpeech = (text: string, voiceIndex: number, speed: number) => {
-    var msg = new SpeechSynthesisUtterance();
-    msg.text = text;
-    msg.voice = window.speechSynthesis.getVoices()[voiceIndex];
-    msg.rate = speed;
-    window.speechSynthesis.speak(msg);
-    msg.onerror = (err) => {
-      console.log(err);
-    };
+    this.setState({ nodeIndex: this.state.nodeIndex + 1 });
+  }
+  handleSpeech = async (
+    currentText: string,
+    nextText: string,
+    voiceIndex: number,
+    speed: number
+  ) => {
+    if (voiceIndex > this.state.nativeVoices.length) {
+      let edgeVoice =
+        this.state.edgeVoices[voiceIndex - this.state.nativeVoices.length];
+      await EdgeUtil.readAloud(
+        currentText,
+        nextText,
+        edgeVoice.ShortName,
+        speed * 100 - 100
+      );
+      let player = EdgeUtil.getPlayer();
 
-    msg.onend = (event) => {
-      if (!(this.state.isAudioOn && this.props.isReading)) {
-        return;
-      }
-      this.props.htmlBook.rendition.next();
-      this.handleAudio();
-    };
+      player.onended = async (event) => {
+        if (!(this.state.isAudioOn && this.props.isReading)) {
+          return;
+        }
+        // await this.props.htmlBook.rendition.next();
+        await this.handleAudio();
+      };
+    } else {
+      var msg = new SpeechSynthesisUtterance();
+      msg.text = currentText;
+      msg.voice = window.speechSynthesis.getVoices()[voiceIndex];
+      msg.rate = speed;
+      window.speechSynthesis.speak(msg);
+      msg.onerror = (err) => {
+        console.log(err);
+      };
+
+      msg.onend = async (event) => {
+        if (!(this.state.isAudioOn && this.props.isReading)) {
+          return;
+        }
+        await this.handleAudio();
+      };
+    }
   };
 
   render() {
@@ -163,7 +253,7 @@ class TextToSpeech extends React.Component<
                       "voiceIndex",
                       event.target.value
                     );
-                    window.speechSynthesis.cancel();
+                    toast("Take effect in a while");
                   }}
                 >
                   {this.state.voices.map((item, index) => {
@@ -195,7 +285,7 @@ class TextToSpeech extends React.Component<
                       "voiceSpeed",
                       event.target.value
                     );
-                    window.speechSynthesis.cancel();
+                    toast("Take effect in a while");
                   }}
                 >
                   {speedList.option.map((item) => (

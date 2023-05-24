@@ -1,14 +1,9 @@
 import React from "react";
 import RecentBooks from "../../utils/readUtils/recordRecent";
 import { ViewerProps, ViewerState } from "./interface";
-import localforage from "localforage";
 import { withRouter } from "react-router-dom";
 import BookUtil from "../../utils/fileUtils/bookUtil";
-import iconv from "iconv-lite";
-import chardet from "chardet";
-import rtfToHTML from "@iarna/rtf-to-html";
 import PopupMenu from "../../components/popups/popupMenu";
-import { xmlBookParser } from "../../utils/fileUtils/xmlUtil";
 import StorageUtil from "../../utils/serviceUtils/storageUtil";
 import RecordLocation from "../../utils/readUtils/recordLocation";
 import { mimetype } from "../../constants/mimetype";
@@ -16,29 +11,19 @@ import Background from "../../components/background";
 import toast from "react-hot-toast";
 import StyleUtil from "../../utils/readUtils/styleUtil";
 import "./index.css";
-import {
-  bindHtmlEvent,
-  HtmlMouseEvent,
-} from "../../utils/serviceUtils/mouseEvent";
-import untar from "js-untar";
+import { HtmlMouseEvent } from "../../utils/serviceUtils/mouseEvent";
 import ImageViewer from "../../components/imageViewer";
-import _ from "underscore";
-import { removeExtraQuestionMark } from "../../utils/fileUtils/rtfUtil";
 import { getIframeDoc } from "../../utils/serviceUtils/docUtil";
 import { tsTransform } from "../../utils/serviceUtils/langUtil";
+import localforage from "localforage";
+import { removeExtraQuestionMark } from "../../utils/commonUtil";
+import CFI from "epub-cfi-resolver";
+import mhtml2html from "mhtml2html";
+import rtfToHTML from "@iarna/rtf-to-html";
+import { binicReadingProcess } from "../../utils/serviceUtils/bionicUtil";
 
 declare var window: any;
 let lock = false; //prevent from clicking too fasts
-const {
-  MobiRender,
-  Azw3Render,
-  EpubRender,
-  TxtRender,
-  StrRender,
-  ComicRender,
-} = window.Kookit;
-let Unrar = window.Unrar;
-let JSZip = window.JSZip;
 
 class Viewer extends React.Component<ViewerProps, ViewerState> {
   lock: boolean;
@@ -55,15 +40,14 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
         RecordLocation.getHtmlLocation(this.props.currentBook.key)
           .chapterTitle || "",
       readerMode: StorageUtil.getReaderConfig("readerMode") || "double",
+      isDisablePopup: StorageUtil.getReaderConfig("isDisablePopup") === "yes",
+
       margin: parseInt(StorageUtil.getReaderConfig("margin")) || 30,
-      extraMargin:
-        this.props.currentBook.format === "EPUB"
-          ? (document.body.clientWidth -
-              2 * (parseInt(StorageUtil.getReaderConfig("margin")) || 30) -
-              20) /
-            24
-          : 0,
-      chapterIndex: 0,
+      extraMargin: 0,
+      chapterDocIndex: parseInt(
+        RecordLocation.getHtmlLocation(this.props.currentBook.key)
+          .chapterDocIndex || 0
+      ),
       chapter: "",
       pageWidth: 0,
       pageHeight: 0,
@@ -96,23 +80,11 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
             .getAttribute("style")!
             .substring(0, reader.getAttribute("style")!.indexOf("width"))
         );
-        this.handlePageWidth();
+        StorageUtil.getReaderConfig("readerMode") !== "scroll" &&
+          this.handlePageWidth();
       }
-      if (this.props.currentBook.format === "EPUB") {
-        let doc = getIframeDoc();
-        if (!doc) return;
-        bindHtmlEvent(
-          this.props.htmlBook.rendition,
-          doc,
-          this.props.currentBook.key,
-          this.state.readerMode
-        );
-        this.handleBindGesture();
-        StyleUtil.addDefaultCss();
-        this.props.renderNoteFunc();
-      } else {
-        this.handleRenderBook();
-      }
+
+      this.handleRenderBook();
 
       lock = true;
       setTimeout(function () {
@@ -145,19 +117,17 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       this.state.rendition.removeContent();
     }
 
-    this.handlePageWidth();
+    StorageUtil.getReaderConfig("readerMode") !== "scroll" &&
+      this.handlePageWidth();
 
     window.rangy.init();
     BookUtil.fetchBook(key, true, path).then((result) => {
       if (!result) {
-        toast.error(this.props.t("Book not exsits"));
+        toast.error(this.props.t("Book not exsit"));
         return;
       }
-
-      if (format === "MOBI") {
+      if (format === "MOBI" || format === "AZW3" || format === "AZW") {
         this.handleMobi(result as ArrayBuffer);
-      } else if (format === "AZW3") {
-        this.handleAzw3(result as ArrayBuffer);
       } else if (format === "EPUB") {
         this.handleEpub(result as ArrayBuffer);
       } else if (format === "TXT") {
@@ -173,16 +143,18 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       } else if (
         format === "HTML" ||
         format === "XHTML" ||
+        format === "MHTML" ||
         format === "HTM" ||
         format === "XML"
       ) {
         this.handleHtml(result as ArrayBuffer, format);
-      } else if (format === "CBR") {
-        this.handleCbr(result as ArrayBuffer);
-      } else if (format === "CBT") {
-        this.handleCbt(result as ArrayBuffer);
-      } else if (format === "CBZ") {
-        this.handleCbz(result as ArrayBuffer);
+      } else if (
+        format === "CBR" ||
+        format === "CBT" ||
+        format === "CBZ" ||
+        format === "CB7"
+      ) {
+        this.handleComic(result as ArrayBuffer, format);
       }
       this.props.handleReadingState(true);
 
@@ -197,7 +169,7 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       this.props.currentBook.key,
       this.state.readerMode
     );
-    let chapters = await rendition.getChapter();
+    let chapters = rendition.getChapter();
     let flattenChapters = rendition.flatChapter(chapters);
     this.props.handleHtmlBook({
       key: this.props.currentBook.key,
@@ -206,76 +178,107 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       rendition: rendition,
     });
     this.setState({ rendition });
-
     this.setState({
       pageWidth: rendition.getPageSize().width,
       pageHeight: rendition.getPageSize().height,
     });
     StyleUtil.addDefaultCss();
+    tsTransform();
+    binicReadingProcess();
     rendition.setStyle(
       StyleUtil.getCustomCss(
-        this.props.currentBook.format === "EPUB" ? false : true
+        true,
+        StorageUtil.getReaderConfig("readerMode") === "scroll"
       )
     );
-
     let bookLocation: {
       text: string;
       count: string;
       chapterTitle: string;
+      chapterDocIndex: string;
+      chapterHref: string;
       percentage: string;
       cfi: string;
     } = RecordLocation.getHtmlLocation(this.props.currentBook.key);
-    await rendition.goToPosition(
-      JSON.stringify({
-        text: bookLocation.text,
-        chapterTitle: bookLocation.chapterTitle,
-        count: bookLocation.count,
-        percentage: bookLocation.percentage,
-        cfi: bookLocation.cfi,
-      })
-    );
+    //compatile wiht lower version(1.5.1)
+    if (bookLocation.cfi) {
+      await rendition.goToChapter(
+        bookLocation.chapterDocIndex,
+        bookLocation.chapterHref,
+        bookLocation.chapterTitle
+      );
+      let cfiObj = new CFI(bookLocation.cfi);
+      let pageArea = document.getElementById("page-area");
+      if (!pageArea) return;
+      let iframe = pageArea.getElementsByTagName("iframe")[0];
+      if (!iframe) return;
+      let doc: any = iframe.contentDocument;
+      if (!doc) {
+        return;
+      }
+      var bookmark = cfiObj.resolveLast(doc, {
+        ignoreIDs: true,
+      });
 
-    rendition.on("rendered", async () => {
+      await rendition.goToNode(bookmark.node.parentElement);
+    } else {
+      await rendition.goToPosition(
+        JSON.stringify({
+          text: bookLocation.text || "",
+          chapterTitle: bookLocation.chapterTitle || "",
+          chapterDocIndex: bookLocation.chapterDocIndex || 0,
+          chapterHref: bookLocation.chapterHref || "",
+          count: bookLocation.count || 0,
+          percentage: bookLocation.percentage,
+          cfi: bookLocation.cfi,
+          isFirst: true,
+        })
+      );
+    }
 
-      await this.handleLocation();
-      let bookLocation: { text: string; count: string; chapterTitle: string } =
-        RecordLocation.getHtmlLocation(this.props.currentBook.key);
-      if (this.props.currentBook.format.startsWith("CB")) {
-        this.setState({
-          chapter:
-            this.props.htmlBook.flattenChapters[
-              parseInt(bookLocation.count) || 0
-            ].label,
-          chapterIndex: parseInt(bookLocation.count) || 0,
-        });
+    rendition.on("rendered", () => {
+      this.handleLocation();
+      let bookLocation: {
+        text: string;
+        count: string;
+        chapterTitle: string;
+        chapterDocIndex: string;
+        chapterHref: string;
+      } = RecordLocation.getHtmlLocation(this.props.currentBook.key);
+
+      let chapter =
+        bookLocation.chapterTitle ||
+        (this.props.htmlBook
+          ? this.props.htmlBook.flattenChapters[0].title
+          : "Unknown Chapter");
+      let chapterDocIndex = 0;
+      if (bookLocation.chapterDocIndex) {
+        chapterDocIndex = parseInt(bookLocation.chapterDocIndex);
       } else {
-        let chapter =
-          bookLocation.chapterTitle ||
-          (this.props.htmlBook
-            ? this.props.htmlBook.flattenChapters[0].label
-            : "Unknown Chapter");
-        let chapterIndex =
+        chapterDocIndex =
           bookLocation.chapterTitle && this.props.htmlBook
-            ? _.findLastIndex(
+            ? window._.findLastIndex(
                 this.props.htmlBook.flattenChapters.map((item) => {
-                  item.label = item.label.trim();
+                  item.title = item.title.trim();
                   return item;
                 }),
                 {
-                  label: bookLocation.chapterTitle.trim(),
+                  title: bookLocation.chapterTitle.trim(),
                 }
               )
             : 0;
-        this.props.handleCurrentChapter(chapter);
-        this.props.handleCurrentChapterIndex(chapterIndex);
-        this.props.handleFetchPercentage(this.props.currentBook);
-        this.setState({
-          chapter,
-          chapterIndex,
-        });
       }
+      this.props.handleCurrentChapter(chapter);
+      this.props.handleCurrentChapterIndex(chapterDocIndex);
+      this.props.handleFetchPercentage(this.props.currentBook);
+      this.setState({
+        chapter,
+        chapterDocIndex,
+      });
+      this.handleContentScroll(chapter, bookLocation.chapterHref);
       StyleUtil.addDefaultCss();
       tsTransform();
+      binicReadingProcess();
       this.handleBindGesture();
       lock = true;
       setTimeout(function () {
@@ -284,12 +287,32 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       return false;
     });
   };
-  handleLocation = async () => {
-    let position = await this.props.htmlBook.rendition.getPosition();
+  handleContentScroll = (chapter: string, chapterHref: string) => {
+    let chapterIndex = window._.findIndex(this.props.htmlBook.flattenChapters, {
+      href: chapterHref,
+    });
+    let contentBody = document.getElementsByClassName("navigation-body")[0];
+    if (!contentBody) return;
+    let contentList = contentBody.getElementsByTagName("a");
+    let targetContent = Array.from(contentList).filter((item, index) => {
+      item.setAttribute("style", "");
+      return (
+        item.textContent === chapter && Math.abs(index - chapterIndex) <= 1
+      );
+    });
+    if (targetContent.length > 0) {
+      contentBody.scrollTo(0, targetContent[0].offsetTop);
+      targetContent[0].setAttribute("style", "color:red; font-weight: bold");
+    }
+  };
+  handleLocation = () => {
+    let position = this.props.htmlBook.rendition.getPosition();
     RecordLocation.recordHtmlLocation(
       this.props.currentBook.key,
       position.text,
       position.chapterTitle,
+      position.chapterDocIndex,
+      position.chapterHref,
       position.count,
       position.percentage,
       position.cfi
@@ -305,98 +328,64 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       this.props.handleLeaveReader("bottom");
     });
     doc.addEventListener("mouseup", () => {
-      if (!doc!.getSelection()) return;
+      if (this.state.isDisablePopup) return;
+      if (!doc!.getSelection() || doc!.getSelection()!.rangeCount === 0) return;
+      var rect = doc!.getSelection()!.getRangeAt(0).getBoundingClientRect();
+      this.setState({ rect });
+    });
+    doc.addEventListener("contextmenu", (event) => {
+      if (!this.state.isDisablePopup) return;
+      event.preventDefault();
+      if (!doc!.getSelection() || doc!.getSelection()!.rangeCount === 0) return;
       var rect = doc!.getSelection()!.getRangeAt(0).getBoundingClientRect();
       this.setState({ rect });
     });
   };
-  handleCbr = async (result: ArrayBuffer) => {
-    let unrar = new Unrar(result);
-    var entries = unrar.getEntries();
+  handleCharset = (bufferStr: string) => {
+    return new Promise<string>(async (resolve, reject) => {
+      let { books } = this.props;
+      let charset = "";
+      books.forEach((item) => {
+        if (item.key === this.props.currentBook.key) {
+          charset = window.jschardet.detect(bufferStr).encoding || "utf-8";
+          item.charset = charset;
+          this.props.handleReadingBook(item);
+        }
+      });
+      await localforage.setItem("books", books);
+      resolve(charset);
+    });
+  };
+  handleComic = async (result: ArrayBuffer, format: string) => {
     let bookLocation = RecordLocation.getHtmlLocation(
       this.props.currentBook.key
     );
-    let rendition = new ComicRender(
-      entries.map((item: any) => item.name),
-      unrar,
+    let rendition = new window.Kookit.ComicRender(
+      result,
       this.state.readerMode,
-      "cbr",
-      StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
+      format
     );
     await rendition.renderTo(
       document.getElementsByClassName("html-viewer-page")[0],
       parseInt(bookLocation.count) || 0
     );
-    this.handleRest(rendition);
-  };
-  handleCbz = (result: ArrayBuffer) => {
-    let zip = new JSZip();
-    let bookLocation = RecordLocation.getHtmlLocation(
-      this.props.currentBook.key
-    );
-    zip.loadAsync(result).then(async (contents) => {
-      let rendition = new ComicRender(
-        Object.keys(contents.files).sort(),
-        zip,
-        this.state.readerMode,
-        "cbz",
-        StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-      );
-      await rendition.renderTo(
-        document.getElementsByClassName("html-viewer-page")[0],
-        parseInt(bookLocation.count) || 0
-      );
-      this.handleRest(rendition);
-    });
-  };
-  handleCbt = (result: ArrayBuffer) => {
-    let bookLocation = RecordLocation.getHtmlLocation(
-      this.props.currentBook.key
-    );
-    untar(result).then(
-      async (extractedFiles) => {
-        let rendition = new ComicRender(
-          extractedFiles.map((item: any) => item.name),
-          extractedFiles,
-          this.state.readerMode,
-          "cbt",
-          StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-        );
-        await rendition.renderTo(
-          document.getElementsByClassName("html-viewer-page")[0],
-          parseInt(bookLocation.count) || 0
-        );
-        this.handleRest(rendition);
-      },
-      function (err) {
-        // onError
-      },
-      function (extractedFile) {
-        // onProgress
-      }
-    );
+    await this.handleRest(rendition);
   };
   handleMobi = async (result: ArrayBuffer) => {
-    let rendition = new MobiRender(
-      result,
-      this.state.readerMode,
-      StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-    );
+    let rendition = new window.Kookit.MobiRender(result, this.state.readerMode);
     await rendition.renderTo(
       document.getElementsByClassName("html-viewer-page")[0]
     );
-    this.handleRest(rendition);
+    await this.handleRest(rendition);
   };
   handleEpub = async (result: ArrayBuffer) => {
-    let rendition = new EpubRender(
-      result,
-      this.state.readerMode,
-      StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-    );
+    let rendition = new window.Kookit.EpubRender(result, this.state.readerMode);
     let bookLocation: {
       text: string;
       count: string;
       chapterTitle: string;
+      chapterDocIndex: string;
+      chapterHref: string;
       percentage: string;
       cfi: string;
     } = RecordLocation.getHtmlLocation(this.props.currentBook.key);
@@ -404,133 +393,81 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       document.getElementsByClassName("html-viewer-page")[0],
       bookLocation.cfi
     );
-    this.handleRest(rendition);
-  };
-  handleAzw3 = async (result: ArrayBuffer) => {
-    let rendition = new Azw3Render(
-      result,
-      this.state.readerMode,
-      StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-    );
-    await rendition.renderTo(
-      document.getElementsByClassName("html-viewer-page")[0]
-    );
-    this.handleRest(rendition);
-  };
-  handleCharset = (result: ArrayBuffer) => {
-    return new Promise<string>(async (resolve, reject) => {
-      let { books } = this.props;
-      let charset = "";
-      books.forEach((item) => {
-        if (item.key === this.props.currentBook.key) {
-          charset = chardet.detect(Buffer.from(result)) || "";
-          item.charset = charset;
-          this.props.handleReadingBook(item);
-        }
-      });
-
-      await localforage.setItem("books", books);
-      // this.props.handleFetchBooks();
-      resolve(charset);
-    });
+    await this.handleRest(rendition);
   };
   handleTxt = async (result: ArrayBuffer) => {
-    let charset = "";
-    if (!this.props.currentBook.charset) {
-      charset = await this.handleCharset(result);
+    const array = new Uint8Array(result as ArrayBuffer);
+    let bufferStr = "";
+    for (let i = 0; i < array.length; ++i) {
+      bufferStr += String.fromCharCode(array[i]);
     }
-    let rendition = new TxtRender(
+    let charset = "";
+    // if (!this.props.currentBook.charset) {
+    charset = await this.handleCharset(bufferStr);
+    // }
+    let rendition = new window.Kookit.TxtRender(
       result,
       this.state.readerMode,
-      this.props.currentBook.charset || charset || "utf8",
-      StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
+      this.props.currentBook.charset || charset || "utf8"
     );
     await rendition.renderTo(
       document.getElementsByClassName("html-viewer-page")[0]
     );
-    this.handleRest(rendition);
+    await this.handleRest(rendition);
   };
   handleMD = (result: ArrayBuffer) => {
     var blob = new Blob([result], { type: "text/plain" });
     var reader = new FileReader();
     reader.onload = async (evt) => {
       let docStr = window.marked(evt.target?.result as any);
-      let rendition = new StrRender(
+      let rendition = new window.Kookit.StrRender(
         docStr,
-        this.state.readerMode,
-        StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
+        this.state.readerMode
       );
       await rendition.renderTo(
         document.getElementsByClassName("html-viewer-page")[0]
       );
-      this.handleRest(rendition);
+      await this.handleRest(rendition);
     };
     reader.readAsText(blob, "UTF-8");
   };
   handleRtf = async (result: ArrayBuffer) => {
-    let charset = "";
-    if (!this.props.currentBook.charset) {
-      charset = await this.handleCharset(result);
+    const array = new Uint8Array(result as ArrayBuffer);
+    let bufferStr = "";
+    for (let i = 0; i < array.length; ++i) {
+      bufferStr += String.fromCharCode(array[i]);
     }
-    let text = iconv.decode(
-      Buffer.from(result),
-      this.props.currentBook.charset || charset || "utf8"
-    );
-
-    rtfToHTML.fromString(text, async (err: any, html: any) => {
-      let rendition = new StrRender(
+    rtfToHTML.fromString(bufferStr, async (err: any, html: any) => {
+      let rendition = new window.Kookit.StrRender(
         removeExtraQuestionMark(html),
-        this.state.readerMode,
-        StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
+        this.state.readerMode
       );
       await rendition.renderTo(
         document.getElementsByClassName("html-viewer-page")[0]
       );
-      this.handleRest(rendition);
+      await this.handleRest(rendition);
     });
   };
   handleDocx = (result: ArrayBuffer) => {
     window.mammoth
       .convertToHtml({ arrayBuffer: result })
       .then(async (res: any) => {
-        let rendition = new StrRender(
+        let rendition = new window.Kookit.StrRender(
           res.value,
-          this.state.readerMode,
-          StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
+          this.state.readerMode
         );
         await rendition.renderTo(
           document.getElementsByClassName("html-viewer-page")[0]
         );
-        this.handleRest(rendition);
+        await this.handleRest(rendition);
       });
   };
-  toBuffer(ab) {
-    const buf = Buffer.alloc(ab.byteLength);
-    const view = new Uint8Array(ab);
-    for (let i = 0; i < buf.length; ++i) {
-      buf[i] = view[i];
-    }
-    return buf;
-  }
   handleFb2 = async (result: ArrayBuffer) => {
-    let charset = "";
-    if (!this.props.currentBook.charset) {
-      charset = await this.handleCharset(result);
-    }
-    let fb2Str = iconv.decode(
-      Buffer.from(result),
-      this.props.currentBook.charset || charset || "utf8"
-    );
-    let bookObj = xmlBookParser(Buffer.from(result), fb2Str);
-    let rendition = new StrRender(
-      bookObj,
-      this.state.readerMode,
-      StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-    );
+    let rendition = new window.Kookit.Fb2Render(result, this.state.readerMode);
     await rendition.renderTo(
       document.getElementsByClassName("html-viewer-page")[0]
     );
-    this.handleRest(rendition);
+    await this.handleRest(rendition);
   };
   handleHtml = (result: ArrayBuffer, format: string) => {
     var blob = new Blob([result], {
@@ -538,16 +475,16 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     });
     var reader = new FileReader();
     reader.onload = async (evt) => {
-      const html = evt.target?.result as any;
-      let rendition = new StrRender(
-        html,
-        this.state.readerMode,
-        StorageUtil.getReaderConfig("isSliding") === "yes" ? true : false
-      );
+      let html = evt.target?.result as any;
+      if (format === "MHTML") {
+        html =
+          mhtml2html.convert(html).window.document.documentElement.innerHTML;
+      }
+      let rendition = new window.Kookit.StrRender(html, this.state.readerMode);
       await rendition.renderTo(
         document.getElementsByClassName("html-viewer-page")[0]
       );
-      this.handleRest(rendition);
+      await this.handleRest(rendition);
     };
     reader.readAsText(blob, "UTF-8");
   };
@@ -562,10 +499,10 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
               ? { left: 0, right: 0 }
               : this.state.readerMode === "scroll"
               ? {
-                  left: `calc(50vw - ${
+                  paddingLeft: `calc(50vw - ${
                     270 * parseFloat(this.state.scale)
                   }px + 20px)`,
-                  right: `calc(50vw - ${
+                  paddingRight: `calc(50vw - ${
                     270 * parseFloat(this.state.scale)
                   }px + 15px)`,
                   overflowY: "scroll",
@@ -599,7 +536,7 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
               rect: this.state.rect,
               pageWidth: this.state.pageWidth,
               pageHeight: this.state.pageHeight,
-              chapterIndex: this.state.chapterIndex,
+              chapterDocIndex: this.state.chapterDocIndex,
               chapter: this.state.chapter,
             }}
           />

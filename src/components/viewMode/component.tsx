@@ -2,7 +2,7 @@ import React from "react";
 import "./viewMode.css";
 import { ViewModeProps, ViewModeState } from "./interface";
 import StorageUtil from "../../utils/serviceUtils/storageUtil";
-import { Tooltip } from "react-tippy";
+
 import { viewMode } from "../../constants/viewMode";
 
 class ViewMode extends React.Component<ViewModeProps, ViewModeState> {
@@ -18,12 +18,7 @@ class ViewMode extends React.Component<ViewModeProps, ViewModeState> {
     return (
       <div className="book-list-view">
         {viewMode.map((item) => (
-          <Tooltip
-            key={item.name}
-            title={this.props.t(item.name)}
-            position="top"
-            trigger="mouseenter"
-          >
+          <>
             <div
               className="card-list-mode"
               onClick={() => {
@@ -33,7 +28,7 @@ class ViewMode extends React.Component<ViewModeProps, ViewModeState> {
             >
               <span className={`icon-${item.icon}`}></span>
             </div>
-          </Tooltip>
+          </>
         ))}
       </div>
     );

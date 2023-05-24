@@ -22,6 +22,7 @@ class BookList extends React.Component<BookListProps, BookListState> {
     super(props);
     this.state = {
       favoriteBooks: Object.keys(AddFavorite.getAllFavorite()).length,
+      isHideShelfBook: StorageUtil.getReaderConfig("isHideShelfBook") === "yes",
     };
   }
   UNSAFE_componentWillMount() {
@@ -74,6 +75,11 @@ class BookList extends React.Component<BookListProps, BookListState> {
     });
     return itemArr;
   };
+  handleFilterShelfBook = (items: BookModel[]) => {
+    return items.filter((item) => {
+      return ShelfUtil.getBookPosition(item.key).length === 0;
+    });
+  };
   renderBookList = () => {
     //根据不同的场景获取不同的图书数据
 
@@ -85,23 +91,24 @@ class BookList extends React.Component<BookListProps, BookListState> {
           //返回排序后的图书index
           SortUtil.sortBooks(this.props.books, this.props.bookSortCode) || []
         )
-      : this.props.mode === "favorite" && !this.props.isBookSort
-      ? this.handleKeyFilter(this.props.books, AddFavorite.getAllFavorite())
-      : this.props.mode === "favorite" && this.props.isBookSort
+      : this.props.mode === "favorite" //我的喜爱
       ? this.handleIndexFilter(
           this.handleKeyFilter(this.props.books, AddFavorite.getAllFavorite()),
           //返回排序后的图书index
           SortUtil.sortBooks(this.props.books, this.props.bookSortCode) || []
         )
-      : this.props.isBookSort
+      : this.state.isHideShelfBook //我的喜爱
       ? this.handleIndexFilter(
-          this.props.books,
+          this.handleFilterShelfBook(this.props.books),
           //返回排序后的图书index
           SortUtil.sortBooks(this.props.books, this.props.bookSortCode) || []
         )
-      : this.props.books;
-
-    if (this.props.mode === "shelf" && books.length === 0) {
+      : this.handleIndexFilter(
+          this.props.books,
+          //返回排序后的图书index
+          SortUtil.sortBooks(this.props.books, this.props.bookSortCode) || []
+        );
+    if (books.length === 0) {
       return (
         <div
           style={{
@@ -121,21 +128,23 @@ class BookList extends React.Component<BookListProps, BookListState> {
       return this.props.viewMode === "list" ? (
         <BookListItem
           {...{
-            key: item.key,
+            key: index,
             book: item,
             isSelected: this.props.selectedBooks.indexOf(item.key) > -1,
           }}
         />
       ) : this.props.viewMode === "card" ? (
         <BookCardItem
-          key={item.key}
-          book={item}
-          isSelected={this.props.selectedBooks.indexOf(item.key) > -1}
+          {...{
+            key: index,
+            book: item,
+            isSelected: this.props.selectedBooks.indexOf(item.key) > -1,
+          }}
         />
       ) : (
         <BookCoverItem
           {...{
-            key: item.key,
+            key: index,
             book: item,
             isSelected: this.props.selectedBooks.indexOf(item.key) > -1,
           }}
@@ -174,7 +183,9 @@ class BookList extends React.Component<BookListProps, BookListState> {
       <>
         <ViewMode />
         <SelectBook />
-        {!this.props.isSelectBook && <ShelfSelector />}
+        <div style={this.props.isSelectBook ? { display: "none" } : {}}>
+          <ShelfSelector />
+        </div>
         <div
           className="book-list-container-parent"
           style={
@@ -192,4 +203,4 @@ class BookList extends React.Component<BookListProps, BookListState> {
   }
 }
 
-export default withRouter(BookList);
+export default withRouter(BookList as any);

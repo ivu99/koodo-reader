@@ -20,6 +20,7 @@ class SettingSwitch extends React.Component<
       isShadow: StorageUtil.getReaderConfig("isShadow") === "yes",
       isItalic: StorageUtil.getReaderConfig("isItalic") === "yes",
       isInvert: StorageUtil.getReaderConfig("isInvert") === "yes",
+      isBionic: StorageUtil.getReaderConfig("isBionic") === "yes",
       isHideBackground:
         StorageUtil.getReaderConfig("isHideBackground") === "yes",
       isHideFooter: StorageUtil.getReaderConfig("isHideFooter") === "yes",
@@ -33,7 +34,7 @@ class SettingSwitch extends React.Component<
 
   _handleRest = () => {
     if (isElectron) {
-      toast(this.props.t("Take effect at next startup"));
+      window.require("electron").ipcRenderer.invoke("reload", "ping");
     } else {
       window.location.reload();
     }
@@ -46,8 +47,8 @@ class SettingSwitch extends React.Component<
         this.state[stateName] ? "yes" : "no"
       );
       toast(this.props.t("Change Successfully"));
-      setTimeout(() => {
-        this.props.renderBookFunc();
+      setTimeout(async () => {
+        await this.props.renderBookFunc();
       }, 500);
     });
   };
@@ -98,6 +99,9 @@ class SettingSwitch extends React.Component<
                     break;
                   case "isInvert":
                     this._handleChange("isInvert");
+                    break;
+                  case "isBionic":
+                    this._handleChange("isBionic");
                     break;
                   case "isHideFooter":
                     this.handleChange("isHideFooter");

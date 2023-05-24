@@ -15,7 +15,8 @@ class styleUtil {
       `background-color:${
         StorageUtil.getReaderConfig("isMergeWord") === "yes"
           ? "rgba(0,0,0,0)"
-          : StorageUtil.getReaderConfig("backgroundColor")
+          : StorageUtil.getReaderConfig("backgroundColor") ||
+            "rgba(255,255,255,1)"
       };filter: brightness(${
         StorageUtil.getReaderConfig("brightness") || 1
       }) invert(${StorageUtil.getReaderConfig("isInvert") === "yes" ? 1 : 0})`
@@ -36,7 +37,7 @@ class styleUtil {
 
     return `::selection{background:#f3a6a68c}::-moz-selection{background:#f3a6a68c}[class*=color-]:hover{cursor:pointer;background-image:linear-gradient(0,rgba(0,0,0,.075),rgba(0,0,0,.075))}.color-0{background-color:${colors[0]}}.color-1{background-color:${colors[1]}}.color-2{background-color:${colors[2]}}.color-3{background-color:${colors[3]}}.line-0{border-bottom:2px solid ${lines[0]}}.line-1{border-bottom:2px solid ${lines[1]}}.line-2{border-bottom:2px solid ${lines[2]}}.line-3{border-bottom:2px solid ${lines[3]}}}img{max-width:100% !important}`;
   }
-  static getCustomCss(isJSON: boolean = true) {
+  static getCustomCss(isJSON: boolean = true, isScroll: boolean = false) {
     if (isJSON) {
       return `font-size: ${
         StorageUtil.getReaderConfig("fontSize") || 17
@@ -81,7 +82,7 @@ class styleUtil {
           : ""
       };margin-bottom: ${
         StorageUtil.getReaderConfig("paraSpacing") || 0
-      }px !important;padding:0px;word-wrap: break-word;`;
+      }px !important;padding:0px !important;word-wrap: break-word;`;
     } else {
       return {
         "a, article, cite, code, div, li, p, pre, span, table, body": {
@@ -141,10 +142,10 @@ class styleUtil {
           }`,
           "margin-bottom": `${
             StorageUtil.getReaderConfig("paraSpacing") || 0
-          }px !important`,
+          }px !important; word-wrap: break-word;`,
         },
         body: {
-          padding: "0px !important",
+          padding: isScroll ? "0px 8px !important" : "0px !important",
         },
       };
     }

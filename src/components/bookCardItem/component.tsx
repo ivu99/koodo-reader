@@ -23,6 +23,7 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
         AddFavorite.getAllFavorite().indexOf(this.props.book.key) > -1,
       left: 0,
       top: 0,
+      direction: "horizontal",
     };
   }
 
@@ -41,11 +42,16 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
       !filePath
     ) {
       this.props.handleReadingBook(this.props.book);
-      if (StorageUtil.getReaderConfig("isOpenInMain") === "yes") {
-        this.props.history.push(BookUtil.getBookUrl(this.props.book));
-      } else {
-        BookUtil.RedirectBook(this.props.book);
-      }
+
+      BookUtil.RedirectBook(this.props.book, this.props.t, this.props.history);
+    }
+  }
+  UNSAFE_componentWillReceiveProps(nextProps: BookCardProps) {
+    if (nextProps.book.key !== this.props.book.key) {
+      this.setState({
+        isFavorite:
+          AddFavorite.getAllFavorite().indexOf(nextProps.book.key) > -1,
+      });
     }
   }
 
@@ -106,11 +112,7 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
     }
     RecentBooks.setRecent(this.props.book.key);
     this.props.handleReadingBook(this.props.book);
-    if (StorageUtil.getReaderConfig("isOpenInMain") === "yes") {
-      this.props.history.push(BookUtil.getBookUrl(this.props.book));
-    } else {
-      BookUtil.RedirectBook(this.props.book);
-    }
+    BookUtil.RedirectBook(this.props.book, this.props.t, this.props.history);
   };
   render() {
     let percentage = RecordLocation.getHtmlLocation(this.props.book.key)
@@ -127,7 +129,7 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
           }}
           onMouseLeave={() => {
             this.handleConfig(false);
-            this.props.handleActionDialog(false);
+            // this.props.handleActionDialog(false);
           }}
           onContextMenu={(event) => {
             this.handleMoreAction(event);
@@ -142,6 +144,7 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
               onClick={() => {
                 this.handleJump();
               }}
+              style={{ display: "block" }}
             >
               <EmptyCover
                 {...{
@@ -152,14 +155,32 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
               />
             </div>
           ) : (
-            <img
+            <div
               className="book-item-cover"
-              src={this.props.book.cover}
-              alt=""
               onClick={() => {
                 this.handleJump();
               }}
-            />
+            >
+              <img
+                src={this.props.book.cover}
+                alt=""
+                style={
+                  this.state.direction === "horizontal"
+                    ? { width: "100%" }
+                    : { height: "100%" }
+                }
+                onLoad={(res: any) => {
+                  if (
+                    res.target.naturalHeight / res.target.naturalWidth >
+                    137 / 105
+                  ) {
+                    this.setState({ direction: "horizontal" });
+                  } else {
+                    this.setState({ direction: "vertical" });
+                  }
+                }}
+              />
+            </div>
           )}
 
           <p className="book-item-title">{this.props.book.name}</p>
@@ -201,12 +222,14 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
                   this.handleMoreAction(event);
                 }}
               ></span>
-              <span
-                className="icon-love book-love-icon"
-                onClick={() => {
-                  this.handleLoveBook();
-                }}
-              ></span>
+              {!this.state.isFavorite && (
+                <span
+                  className="icon-love book-love-icon"
+                  onClick={() => {
+                    this.handleLoveBook();
+                  }}
+                ></span>
+              )}
             </>
           ) : null}
         </div>
@@ -221,4 +244,4 @@ class BookCardItem extends React.Component<BookCardProps, BookCardState> {
     );
   }
 }
-export default withRouter(BookCardItem);
+export default withRouter(BookCardItem as any);

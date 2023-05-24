@@ -20,6 +20,7 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
       isDeleteDialog: false,
       isFavorite:
         AddFavorite.getAllFavorite().indexOf(this.props.book.key) > -1,
+      direction: "horizontal",
     };
   }
   componentDidMount() {
@@ -36,14 +37,17 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
       !filePath
     ) {
       this.props.handleReadingBook(this.props.book);
-      if (StorageUtil.getReaderConfig("isOpenInMain") === "yes") {
-        this.props.history.push(BookUtil.getBookUrl(this.props.book));
-      } else {
-        BookUtil.RedirectBook(this.props.book);
-      }
+      BookUtil.RedirectBook(this.props.book, this.props.t, this.props.history);
     }
   }
-
+  UNSAFE_componentWillReceiveProps(nextProps: BookItemProps) {
+    if (nextProps.book.key !== this.props.book.key) {
+      this.setState({
+        isFavorite:
+          AddFavorite.getAllFavorite().indexOf(nextProps.book.key) > -1,
+      });
+    }
+  }
   handleDeleteBook = () => {
     this.props.handleDeleteDialog(true);
     this.props.handleReadingBook(this.props.book);
@@ -84,11 +88,7 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
     }
     RecentBooks.setRecent(this.props.book.key);
     this.props.handleReadingBook(this.props.book);
-    if (StorageUtil.getReaderConfig("isOpenInMain") === "yes") {
-      this.props.history.push(BookUtil.getBookUrl(this.props.book));
-    } else {
-      BookUtil.RedirectBook(this.props.book);
-    }
+    BookUtil.RedirectBook(this.props.book, this.props.t, this.props.history);
   };
   handleExportBook() {
     BookUtil.fetchBook(this.props.book.key, true, this.props.book.path).then(
@@ -118,6 +118,7 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
             onClick={() => {
               this.handleJump();
             }}
+            style={{ display: "block" }}
           >
             <EmptyCover
               {...{
@@ -128,13 +129,29 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
             />
           </div>
         ) : (
-          <div className="book-item-list-cover">
+          <div
+            className="book-item-list-cover"
+            onClick={() => {
+              this.handleJump();
+            }}
+          >
             <img
-              className="book-item-list-cover-item"
               src={this.props.book.cover}
               alt=""
-              onClick={() => {
-                this.handleJump();
+              style={
+                this.state.direction === "horizontal"
+                  ? { width: "100%" }
+                  : { height: "100%" }
+              }
+              onLoad={(res: any) => {
+                if (
+                  res.target.naturalHeight / res.target.naturalWidth >
+                  74 / 57
+                ) {
+                  this.setState({ direction: "horizontal" });
+                } else {
+                  this.setState({ direction: "vertical" });
+                }
               }}
             />
           </div>
@@ -165,7 +182,7 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
             <Trans>
               {this.props.book.author
                 ? this.props.book.author
-                : "Unknown Authur"}
+                : "Unknown Author"}
             </Trans>
           </span>
         </p>
@@ -231,4 +248,4 @@ class BookListItem extends React.Component<BookItemProps, BookItemState> {
   }
 }
 
-export default withRouter(BookListItem);
+export default withRouter(BookListItem as any);

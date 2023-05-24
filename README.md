@@ -1,6 +1,6 @@
 <div align="left">
 
-[简体中文](https://github.com/troyeguo/koodo-reader/blob/master/README_cn.md) | English
+[简体中文](https://github.com/troyeguo/koodo-reader/blob/master/README_cn.md) | [Português](https://github.com/troyeguo/koodo-reader/blob/master/README_pt.md) | English
 
 </div>
 
@@ -33,12 +33,12 @@
 - Format support:
   - EPUB (**.epub**)
   - Scanned document (**.pdf**, **.djvu**)
-  - DRM-free Mobipocket (**.mobi**) and Kindle (**.azw3**)
+  - DRM-free Mobipocket (**.mobi**) and Kindle (**.azw3**, **.azw**)
   - Plain text (**.txt**)
   - FictionBook (**.fb2**)
-  - Comic book archive (**.cbr**, **.cbz**, **.cbt**)
+  - Comic book archive (**.cbr**, **.cbz**, **.cbt**, **.cb7**)
   - Rich text (**.md**, **.docx**, **.rtf**)
-  - Hyper Text (**.html**, **.xml**, **.xhtml**, **.htm**)
+  - Hyper Text (**.html**, **.xml**, **.xhtml**, **.mhtml**, **.htm**, **.htm**)
 - Platform support: **Windows**, **macOS**, **Linux** and **Web**
 - Save your data to **Dropbox** or **Webdav**
 - Customize the source folder and synchronize among multiple devices using OneDrive, iCloud, Dropbox, etc.
@@ -62,6 +62,12 @@ scoop bucket add dorado https://github.com/chawyehsu/dorado
 scoop install dorado/koodo-reader
 ```
 
+- Install with Winget:
+
+```shell
+winget install -e AppbyTroye.KoodoReader
+```
+
 - Install with Homebrew:
 
 ```shell
@@ -73,6 +79,15 @@ brew install --cask koodo-reader
 ```bash
 docker-compose up -d
 ```
+
+- Install with Flathub:
+
+```shell
+flatpak install flathub io.github.troyeguo.koodo-reader
+flatpak run io.github.troyeguo.koodo-reader
+```
+
+<a href="https://flathub.org/apps/details/io.github.troyeguo.koodo-reader"><img height="50" alt="Download on Flathub" src="https://flathub.org/assets/badges/flathub-badge-en.png"/></a>
 
 ## Screenshot
 
@@ -96,7 +111,7 @@ docker-compose up -d
 
 ## Develop
 
-Make sure that you have installed yarn and git, node's version on your computer is larger than 14.0.0.
+Make sure that you have installed yarn and git, node's version on your computer is 14.x.x.
 
 1. Download the repo
 

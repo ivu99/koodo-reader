@@ -3,7 +3,6 @@ import RecentBooks from "../../utils/readUtils/recordRecent";
 import { ViewerProps, ViewerState } from "./interface";
 import localforage from "localforage";
 import { withRouter } from "react-router-dom";
-import _ from "underscore";
 import BookUtil from "../../utils/fileUtils/bookUtil";
 import { toast } from "react-hot-toast";
 import BackToMain from "../../components/backToMain";
@@ -18,8 +17,10 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
   }
 
   componentDidMount() {
-    let url = document.location.href.split("/");
-    let key = url[url.length - 1].split("?")[0];
+    let url = document.location.href;
+    let firstIndexOfQuestion = url.indexOf("?");
+    let lastIndexOfSlash = url.lastIndexOf("/", firstIndexOfQuestion);
+    let key = url.substring(lastIndexOfSlash + 1, firstIndexOfQuestion);
 
     localforage.getItem("books").then((result: any) => {
       let book;
@@ -28,12 +29,12 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
         book = this.props.currentBook;
       } else {
         book =
-          result[_.findIndex(result, { key })] ||
+          result[window._.findIndex(result, { key })] ||
           JSON.parse(localStorage.getItem("tempBook") || "{}");
       }
       BookUtil.fetchBook(key, true, book.path).then((result) => {
         if (!result) {
-          toast.error(this.props.t("Book not exsits"));
+          toast.error(this.props.t("Book not exsit"));
           return;
         }
         this.props.handleReadingBook(book);

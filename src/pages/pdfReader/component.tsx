@@ -3,7 +3,6 @@ import RecentBooks from "../../utils/readUtils/recordRecent";
 import { ViewerProps, ViewerState } from "./interface";
 import localforage from "localforage";
 import { withRouter } from "react-router-dom";
-import _ from "underscore";
 import BookUtil from "../../utils/fileUtils/bookUtil";
 import BackToMain from "../../components/backToMain";
 import PopupMenu from "../../components/popups/popupMenu";
@@ -30,15 +29,17 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     this.props.handleFetchBooks();
   }
   componentDidMount() {
-    let url = document.location.href.split("/");
-    let key = url[url.length - 1].split("?")[0];
+    let url = document.location.href;
+    let firstIndexOfQuestion = url.indexOf("?");
+    let lastIndexOfSlash = url.lastIndexOf("/", firstIndexOfQuestion);
+    let key = url.substring(lastIndexOfSlash + 1, firstIndexOfQuestion);
     localforage.getItem("books").then((result: any) => {
       let book;
       if (this.props.currentBook.key) {
         book = this.props.currentBook;
       } else {
         book =
-          result[_.findIndex(result, { key })] ||
+          result[window._.findIndex(result, { key })] ||
           JSON.parse(localStorage.getItem("tempBook") || "{}");
       }
 
@@ -61,13 +62,15 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
         iframe.contentWindow || iframe.contentDocument?.defaultView;
       this.setState({ loading: false });
       pdfMouseEvent();
-      doc.document.addEventListener("click", (event: any) => {
+      doc.document.addEventListener("click", async (event: any) => {
         event.preventDefault();
-        handleLinkJump(event);
+        await handleLinkJump(event);
       });
 
       doc.document.addEventListener("mouseup", () => {
-        if (!doc!.getSelection()) return;
+        if (!doc!.getSelection() || doc!.getSelection().rangeCount === 0)
+          return;
+
         var rect = doc!.getSelection()!.getRangeAt(0).getBoundingClientRect();
         this.setState({
           rect,
@@ -93,7 +96,7 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
               rect: this.state.rect,
               pageWidth: this.state.pageWidth,
               pageHeight: this.state.pageHeight,
-              chapterIndex: 0,
+              chapterDocIndex: 0,
               chapter: "0",
             }}
           />

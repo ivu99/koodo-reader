@@ -5,7 +5,7 @@ import Note from "../../../model/Note";
 import { PopupOptionProps } from "./interface";
 import ColorOption from "../../colorOption";
 import RecordLocation from "../../../utils/readUtils/recordLocation";
-import { Tooltip } from "react-tippy";
+
 import { popupList } from "../../../constants/popupList";
 import StorageUtil from "../../../utils/serviceUtils/storageUtil";
 import toast from "react-hot-toast";
@@ -14,6 +14,7 @@ import copy from "copy-text-to-clipboard";
 import { getHightlightCoords } from "../../../utils/fileUtils/pdfUtil";
 import { getIframeDoc } from "../../../utils/serviceUtils/docUtil";
 import { openExternalUrl } from "../../../utils/serviceUtils/urlUtil";
+import { isElectron } from "react-device-detect";
 
 declare var window: any;
 
@@ -51,6 +52,14 @@ class PopupOption extends React.Component<PopupOptionProps> {
     toast.success(this.props.t("Copy Successfully"));
   };
   handleTrans = () => {
+    if (!isElectron) {
+      toast(
+        this.props.t(
+          "Koodo Reader's web version are limited by the browser, for more powerful features, please download the desktop version."
+        )
+      );
+      return;
+    }
     this.props.handleMenuMode("trans");
     this.props.handleOriginalText(getSelection() || "");
     this.handleEdge();
@@ -60,7 +69,7 @@ class PopupOption extends React.Component<PopupOptionProps> {
     let cfi = "";
     if (this.props.currentBook.format === "PDF") {
       cfi = JSON.stringify(
-        RecordLocation.getPDFLocation(this.props.currentBook.md5)
+        RecordLocation.getPDFLocation(this.props.currentBook.md5.split("-")[0])
       );
     } else {
       cfi = JSON.stringify(
@@ -99,7 +108,7 @@ class PopupOption extends React.Component<PopupOptionProps> {
     let digest = new Note(
       bookKey,
       this.props.chapter,
-      this.props.chapterIndex,
+      this.props.chapterDocIndex,
       text,
       cfi,
       range,
@@ -234,15 +243,9 @@ class PopupOption extends React.Component<PopupOptionProps> {
                     }
                   }}
                 >
-                  <Tooltip
-                    title={this.props.t(item.title)}
-                    position="top"
-                    trigger="mouseenter"
-                  >
-                    <span
-                      className={`icon-${item.icon} ${item.name}-icon`}
-                    ></span>
-                  </Tooltip>
+                  <span
+                    className={`icon-${item.icon} ${item.name}-icon`}
+                  ></span>
                 </div>
               );
             })}

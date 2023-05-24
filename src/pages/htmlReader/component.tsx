@@ -9,7 +9,6 @@ import { ReaderProps, ReaderState } from "./interface";
 import StorageUtil from "../../utils/serviceUtils/storageUtil";
 import ReadingTime from "../../utils/readUtils/readingTime";
 import Viewer from "../../containers/htmlViewer";
-import _ from "underscore";
 import localforage from "localforage";
 import RecordLocation from "../../utils/readUtils/recordLocation";
 import "./index.css";
@@ -34,7 +33,6 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
       isTouch: StorageUtil.getReaderConfig("isTouch") === "yes",
       isPreventTrigger:
         StorageUtil.getReaderConfig("isPreventTrigger") === "yes",
-      readerMode: StorageUtil.getReaderConfig("readerMode") || "double",
     };
   }
   componentDidMount() {
@@ -43,14 +41,9 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
         .querySelector("body")
         ?.setAttribute("style", "background-color: rgba(0,0,0,0)");
     }
-
+    let time = ReadingTime.getTime(this.props.currentBook.key) || 0;
     this.tickTimer = setInterval(() => {
-      if (this.state.time === 0 && this.props.currentBook.key) {
-        this.setState({
-          time: ReadingTime.getTime(this.props.currentBook.key),
-        });
-      } else if (this.state.time > 0) {
-        let time = this.state.time;
+      if (this.props.currentBook.key) {
         time += 1;
         this.setState({ time });
         ReadingTime.setTime(this.props.currentBook.key, time);
@@ -58,8 +51,10 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
     }, 1000);
   }
   UNSAFE_componentWillMount() {
-    let url = document.location.href.split("/");
-    let key = url[url.length - 1].split("?")[0];
+    let url = document.location.href;
+    let firstIndexOfQuestion = url.indexOf("?");
+    let lastIndexOfSlash = url.lastIndexOf("/", firstIndexOfQuestion);
+    let key = url.substring(lastIndexOfSlash + 1, firstIndexOfQuestion);
     this.props.handleFetchBooks();
     localforage.getItem("books").then((result: any) => {
       let book;
@@ -68,7 +63,7 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
         book = this.props.currentBook;
       } else {
         book =
-          result[_.findIndex(result, { key })] ||
+          result[window._.findIndex(result, { key })] ||
           JSON.parse(localStorage.getItem("tempBook") || "{}");
       }
       this.props.handleReadingBook(book);
@@ -132,13 +127,15 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
         break;
     }
   };
-  handleLocation = async () => {
-    let position = await this.props.htmlBook.rendition.getPosition();
+  handleLocation = () => {
+    let position = this.props.htmlBook.rendition.getPosition();
 
     RecordLocation.recordHtmlLocation(
       this.props.currentBook.key,
       position.text,
       position.chapterTitle,
+      position.chapterDocIndex,
+      position.chapterHref,
       position.count,
       position.percentage,
       position.cfi
@@ -161,8 +158,8 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
             <div
               className="previous-chapter-single-container"
               onClick={async () => {
-                this.props.htmlBook.rendition.prev();
-                await this.handleLocation();
+                await this.props.htmlBook.rendition.prev();
+                this.handleLocation();
               }}
             >
               <span className="icon-dropdown previous-chapter-single"></span>
@@ -170,8 +167,8 @@ class Reader extends React.Component<ReaderProps, ReaderState> {
             <div
               className="next-chapter-single-container"
               onClick={async () => {
-                this.props.htmlBook.rendition.next();
-                await this.handleLocation();
+                await this.props.htmlBook.rendition.next();
+                this.handleLocation();
               }}
             >
               <span className="icon-dropdown next-chapter-single"></span>

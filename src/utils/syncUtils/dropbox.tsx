@@ -1,13 +1,12 @@
 import { restore } from "./restoreUtil";
 import StorageUtil from "../serviceUtils/storageUtil";
-
-var Dropbox = (window as any).Dropbox;
+declare var window: any;
 
 class DropboxUtil {
   static UploadFile(blob: any) {
     return new Promise<boolean>((resolve, reject) => {
       var ACCESS_TOKEN = StorageUtil.getReaderConfig("dropbox_token") || "";
-      var dbx = new Dropbox.Dropbox({ accessToken: ACCESS_TOKEN });
+      var dbx = new window.Dropbox.Dropbox({ accessToken: ACCESS_TOKEN });
       const file = new File([blob], "data.zip");
       let date = new Date().getTime();
       dbx
@@ -20,7 +19,7 @@ class DropboxUtil {
           resolve(true);
         })
         .catch(function (error: any) {
-          console.error(error, "上传失败");
+          console.log(error, "上传失败");
           resolve(false);
         });
     });
@@ -28,7 +27,7 @@ class DropboxUtil {
   static DownloadFile() {
     return new Promise<boolean>((resolve, reject) => {
       var ACCESS_TOKEN = StorageUtil.getReaderConfig("dropbox_token") || "";
-      var dbx = new Dropbox.Dropbox({ accessToken: ACCESS_TOKEN });
+      var dbx = new window.Dropbox.Dropbox({ accessToken: ACCESS_TOKEN });
       dbx
         .filesListFolder({ path: "" })
         .then(function (response) {
@@ -53,12 +52,12 @@ class DropboxUtil {
               }
             })
             .catch(function (error: any) {
-              console.error(error);
+              console.log(error);
               resolve(false);
             });
         })
         .catch(function (error) {
-          console.error(error);
+          console.log(error);
         });
     });
   }

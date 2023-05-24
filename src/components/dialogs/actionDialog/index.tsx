@@ -16,6 +16,9 @@ const mapStateToProps = (state: stateType) => {
   return {
     mode: state.sidebar.mode,
     currentBook: state.book.currentBook,
+    books: state.manager.books,
+    notes: state.reader.notes,
+    deletedBooks: state.manager.deletedBooks,
   };
 };
 const actionCreator = {
@@ -29,4 +32,4 @@ const actionCreator = {
 export default connect(
   mapStateToProps,
   actionCreator
-)(withTranslation()(ActionDialog as any));
+)(withTranslation()(ActionDialog as any) as any);

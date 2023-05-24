@@ -8,8 +8,6 @@ import StorageUtil from "../../../utils/serviceUtils/storageUtil";
 import { Panel as ColorPickerPanel } from "rc-color-picker";
 import "rc-color-picker/assets/index.css";
 import ThemeUtil from "../../../utils/readUtils/themeUtil";
-import { Tooltip } from "react-tippy";
-import toast from "react-hot-toast";
 import { isElectron } from "react-device-detect";
 
 class ThemeList extends React.Component<ThemeListProps, ThemeListState> {
@@ -51,7 +49,7 @@ class ThemeList extends React.Component<ThemeListProps, ThemeListState> {
       StorageUtil.setReaderConfig("textColor", "rgba(0,0,0,1)");
     }
     if (isElectron) {
-      toast(this.props.t("Take effect at next startup"));
+      window.require("electron").ipcRenderer.invoke("reload", "ping");
     } else {
       window.location.reload();
     }
@@ -166,25 +164,16 @@ class ThemeList extends React.Component<ThemeListProps, ThemeListState> {
           <Trans>Background Color</Trans>
         </div>
         <ul className="background-color-list">
-          <Tooltip
-            title={this.props.t("Customize")}
-            position="top"
-            trigger="mouseenter"
-            style={{ display: "inline-block" }}
+          <li
+            className="background-color-circle"
+            onClick={() => {
+              this.handleColorBgPicker(!this.state.isShowBgPicker);
+            }}
           >
-            <li
-              className="background-color-circle"
-              onClick={() => {
-                this.handleColorBgPicker(!this.state.isShowBgPicker);
-              }}
-            >
-              <span
-                className={
-                  this.state.isShowBgPicker ? "icon-check" : "icon-more"
-                }
-              ></span>
-            </li>
-          </Tooltip>
+            <span
+              className={this.state.isShowBgPicker ? "icon-check" : "icon-more"}
+            ></span>
+          </li>
 
           {renderBackgroundColorList()}
         </ul>
@@ -204,25 +193,18 @@ class ThemeList extends React.Component<ThemeListProps, ThemeListState> {
           <Trans>Text Color</Trans>
         </div>
         <ul className="background-color-list">
-          <Tooltip
-            title={this.props.t("Customize")}
-            position="top"
-            trigger="mouseenter"
-            style={{ display: "inline-block" }}
+          <li
+            className="background-color-circle"
+            onClick={() => {
+              this.handleColorTextPicker(!this.state.isShowTextPicker);
+            }}
           >
-            <li
-              className="background-color-circle"
-              onClick={() => {
-                this.handleColorTextPicker(!this.state.isShowTextPicker);
-              }}
-            >
-              <span
-                className={
-                  this.state.isShowTextPicker ? "icon-check" : "icon-more"
-                }
-              ></span>
-            </li>
-          </Tooltip>
+            <span
+              className={
+                this.state.isShowTextPicker ? "icon-check" : "icon-more"
+              }
+            ></span>
+          </li>
 
           {renderTextColorList()}
         </ul>

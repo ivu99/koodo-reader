@@ -56,12 +56,23 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
   createNote() {
     let notes = (document.querySelector(".editor-box") as HTMLInputElement)
       .value;
+    let cfi = "";
+    if (this.props.currentBook.format === "PDF") {
+      cfi = JSON.stringify(
+        RecordLocation.getPDFLocation(this.props.currentBook.md5.split("-")[0])
+      );
+    } else {
+      cfi = JSON.stringify(
+        RecordLocation.getHtmlLocation(this.props.currentBook.key)
+      );
+    }
     if (this.props.noteKey) {
       //编辑笔记
       this.props.notes.forEach((item) => {
         if (item.key === this.props.noteKey) {
           item.notes = notes;
           item.tag = this.state.tag;
+          item.cfi = cfi;
         }
       });
       localforage.setItem("notes", this.props.notes).then(() => {
@@ -74,16 +85,6 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
     } else {
       //创建笔记
       let bookKey = this.props.currentBook.key;
-      let cfi = "";
-      if (this.props.currentBook.format === "PDF") {
-        cfi = JSON.stringify(
-          RecordLocation.getPDFLocation(this.props.currentBook.md5)
-        );
-      } else {
-        cfi = JSON.stringify(
-          RecordLocation.getHtmlLocation(this.props.currentBook.key)
-        );
-      }
 
       let pageArea = document.getElementById("page-area");
       if (!pageArea) return;
@@ -121,7 +122,7 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
       let note = new Note(
         bookKey,
         this.props.chapter,
-        this.props.chapterIndex,
+        this.props.chapterDocIndex,
         text,
         cfi,
         range,

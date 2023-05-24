@@ -2,13 +2,17 @@ import BookModel from "../../model/Book";
 import NoteModel from "../../model/Note";
 import ReadingTime from "./readingTime";
 import RecordLocation from "./recordLocation";
-import _ from "underscore";
 import RecordRecent from "./recordRecent";
 const getBookName = (books: BookModel[]) => {
   return books.map((item) => item.name);
 };
 const getAuthorName = (books: BookModel[]) => {
-  return books.map((item) => item.author);
+  return window._.sortBy(
+    books.map((item) => {
+      return { key: item.key, author: item.author };
+    }),
+    "author"
+  ).map((item) => item.key);
 };
 const getBookKey = (books: BookModel[]) => {
   return books.map((item) => item.key);
@@ -16,22 +20,23 @@ const getBookKey = (books: BookModel[]) => {
 const getBookIndex = (nameArr: string[], oldNameArr: string[]) => {
   let indexArr: number[] = [];
   for (let i = 0; i < nameArr.length; i++) {
-    if (oldNameArr.indexOf(nameArr[i]) > -1) {
-      //如果索引数组已经包含该索引，就把它放在随后一位，取数组长度为索引
-      indexArr.push(
-        indexArr.indexOf(oldNameArr.indexOf(nameArr[i])) > -1
-          ? indexArr.length
-          : oldNameArr.indexOf(nameArr[i])
-      );
-    }
+    //如果索引数组已经包含该索引，就把它放在随后一位，取数组长度为索引
+    indexArr.push(oldNameArr.indexOf(nameArr[i]));
   }
-  return indexArr.length < nameArr.length
-    ? indexArr.concat(
-        nameArr
-          .map((item, index) => index)
-          .filter((item) => indexArr.indexOf(item) === -1)
-      )
-    : indexArr;
+  if (indexArr.length < oldNameArr.length) {
+    oldNameArr.forEach((item) => {
+      if (nameArr.indexOf(item) === -1) {
+        indexArr.push(indexArr.length);
+      }
+    });
+  }
+  return [
+    ...new Set(
+      indexArr.map((item) => {
+        return item - Math.min(...indexArr);
+      })
+    ),
+  ];
 };
 const getDurationArr = () => {
   let durationObj = ReadingTime.getAllTime();
@@ -62,62 +67,62 @@ class SortUtil {
   ) {
     let oldRecentArr = books.map((item) => item.key);
     let recentArr = RecordRecent.getAllRecent();
-    if (bookSortCode.sort === 0) {
+    if (bookSortCode.sort === 1 || bookSortCode.sort === 0) {
       if (bookSortCode.order === 1) {
-        return getBookIndex(recentArr, oldRecentArr);
-      } else {
         return getBookIndex(recentArr, oldRecentArr).reverse();
-      }
-    }
-    if (bookSortCode.sort === 1) {
-      let oldNameArr = getBookName(books);
-      let nameArr = getBookName(books).sort();
-      if (bookSortCode.order === 1) {
-        return getBookIndex(nameArr, oldNameArr);
       } else {
-        return getBookIndex(nameArr, oldNameArr).reverse();
+        return getBookIndex(recentArr, oldRecentArr);
       }
     }
     if (bookSortCode.sort === 2) {
+      let oldNameArr = getBookName(books);
+      let nameArr = getBookName(books).sort();
+      if (bookSortCode.order === 1) {
+        return getBookIndex(nameArr, oldNameArr).reverse();
+      } else {
+        return getBookIndex(nameArr, oldNameArr);
+      }
+    }
+    if (bookSortCode.sort === 3) {
       let nameArr: number[] = [];
       for (let i = 0; i < books.length; i++) {
         nameArr.push(i);
       }
       if (bookSortCode.order === 1) {
-        return nameArr;
-      } else {
         return nameArr.reverse();
+      } else {
+        return nameArr;
       }
     }
-    if (bookSortCode.sort === 3) {
+    if (bookSortCode.sort === 4) {
       let durationKeys = getDurationArr();
 
       let bookKeys = getBookKey(books);
       if (bookSortCode.order === 1) {
-        return getBookIndex(_.union(durationKeys, bookKeys), bookKeys);
-      } else {
         return getBookIndex(
-          _.union(durationKeys, bookKeys),
+          window._.union(durationKeys, bookKeys),
           bookKeys
         ).reverse();
-      }
-    }
-    if (bookSortCode.sort === 4) {
-      let oldAuthorArr = getAuthorName(books);
-      let authorArr = getAuthorName(books).sort();
-      if (bookSortCode.order === 1) {
-        return getBookIndex(authorArr, oldAuthorArr);
       } else {
-        return getBookIndex(authorArr, oldAuthorArr).reverse();
+        return getBookIndex(window._.union(durationKeys, bookKeys), bookKeys);
       }
     }
     if (bookSortCode.sort === 5) {
+      let oldAuthorArr = getBookKey(books);
+      let authorArr = getAuthorName(books);
+      if (bookSortCode.order === 1) {
+        return getBookIndex(authorArr, oldAuthorArr).reverse();
+      } else {
+        return getBookIndex(authorArr, oldAuthorArr);
+      }
+    }
+    if (bookSortCode.sort === 6) {
       let percentagenKeys = getPercentageArr();
       let bookKeys = getBookKey(books);
       if (bookSortCode.order === 1) {
-        return getBookIndex(percentagenKeys, bookKeys);
-      } else {
         return getBookIndex(percentagenKeys, bookKeys).reverse();
+      } else {
+        return getBookIndex(percentagenKeys, bookKeys);
       }
     }
   }
@@ -128,14 +133,14 @@ class SortUtil {
   ) {
     if (noteSortCode.sort === 2) {
       //使书摘从晚到早排序
-      let noteArr = _.clone(notes).reverse();
-      let dateArr = _.uniq(
+      let noteArr = window._.clone(notes).reverse();
+      let dateArr = window._.uniq(
         notes.map(
           (item) =>
             "" + item.date.year + "-" + item.date.month + "-" + item.date.day
         )
       );
-      if (noteSortCode.order === 2) {
+      if (noteSortCode.order === 1) {
         dateArr.sort();
       } else {
         dateArr.sort().reverse();
@@ -159,18 +164,18 @@ class SortUtil {
     }
     if (noteSortCode.sort === 1) {
       //使书摘从晚到早排序
-      let noteArr = _.clone(notes).reverse();
-      let nameArr = _.uniq(
+      let noteArr = window._.clone(notes).reverse();
+      let nameArr = window._.uniq(
         notes.map(
           (item) =>
             books[
-              _.findLastIndex(books, {
+              window._.findLastIndex(books, {
                 key: item.bookKey,
               })
             ].name
         )
       );
-      if (noteSortCode.order === 2) {
+      if (noteSortCode.order === 1) {
         nameArr.sort();
       } else {
         nameArr.sort().reverse();
@@ -185,7 +190,7 @@ class SortUtil {
           if (
             name ===
             books[
-              _.findLastIndex(books, {
+              window._.findLastIndex(books, {
                 key: note.bookKey,
               })
             ].name
@@ -200,8 +205,8 @@ class SortUtil {
   static setBookSortCode(sortCode: number, orderCode: number) {
     let json =
       localStorage.getItem("bookSortCode") ||
-      JSON.stringify({ sort: 0, order: 1 });
-    let obj = json ? JSON.parse(json) : { sort: 0, order: 1 };
+      JSON.stringify({ sort: 1, order: 2 });
+    let obj = json ? JSON.parse(json) : { sort: 1, order: 2 };
     obj.sort = sortCode;
     obj.order = orderCode;
     localStorage.setItem("bookSortCode", JSON.stringify(obj));
@@ -210,15 +215,15 @@ class SortUtil {
   static getBookSortCode() {
     let json =
       localStorage.getItem("bookSortCode") ||
-      JSON.stringify({ sort: 0, order: 1 });
-    let obj = JSON.parse(json) || { sort: 0, order: 1 };
+      JSON.stringify({ sort: 1, order: 2 });
+    let obj = JSON.parse(json) || { sort: 1, order: 2 };
     return obj || null;
   }
   static setNoteSortCode(sort: number, order: number) {
     let json =
       localStorage.getItem("noteSortCode") ||
-      JSON.stringify({ sort: 2, order: 1 });
-    let obj = json ? JSON.parse(json) : { sort: 2, order: 1 };
+      JSON.stringify({ sort: 2, order: 2 });
+    let obj = json ? JSON.parse(json) : { sort: 2, order: 2 };
     obj.sort = sort;
     obj.order = order;
     localStorage.setItem("noteSortCode", JSON.stringify(obj));
@@ -227,8 +232,8 @@ class SortUtil {
   static getNoteSortCode() {
     let json =
       localStorage.getItem("noteSortCode") ||
-      JSON.stringify({ sort: 2, order: 1 });
-    let obj = JSON.parse(json) || { sort: 2, order: 1 };
+      JSON.stringify({ sort: 2, order: 2 });
+    let obj = JSON.parse(json) || { sort: 2, order: 2 };
     return obj || null;
   }
 }

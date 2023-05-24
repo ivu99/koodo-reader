@@ -21,10 +21,24 @@ const Router = () => {
         navigator.language === "zh-HK"
       ) {
         i18n.changeLanguage("cht");
+      } else if (navigator.language.startsWith("ro")) {
+        i18n.changeLanguage("ro");
       } else if (navigator.language.startsWith("ru")) {
         i18n.changeLanguage("ru");
       } else if (navigator.language.startsWith("jp")) {
         i18n.changeLanguage("jp");
+      } else if (navigator.language.startsWith("it")) {
+        i18n.changeLanguage("it");
+      } else if (navigator.language.startsWith("nl")) {
+        i18n.changeLanguage("nl");
+      } else if (navigator.language.startsWith("bn")) {
+        i18n.changeLanguage("bn");
+      } else if (navigator.language.startsWith("th")) {
+        i18n.changeLanguage("th");
+      } else if (navigator.language.startsWith("tr")) {
+        i18n.changeLanguage("tr");
+      } else if (navigator.language.startsWith("ar")) {
+        i18n.changeLanguage("ar");
       } else if (navigator.language.startsWith("fr")) {
         i18n.changeLanguage("fr");
       } else if (navigator.language.startsWith("es")) {
@@ -37,6 +51,8 @@ const Router = () => {
         i18n.changeLanguage("cs");
       } else if (navigator.language.startsWith("de")) {
         i18n.changeLanguage("de");
+      } else if (navigator.language.startsWith("pl")) {
+        i18n.changeLanguage("pl");
       } else {
         i18n.changeLanguage("en");
       }
@@ -52,7 +68,9 @@ const Router = () => {
         <Route component={HtmlReader} path="/cbr" />
         <Route component={HtmlReader} path="/cbt" />
         <Route component={HtmlReader} path="/cbz" />
+        <Route component={HtmlReader} path="/cb7" />
         <Route component={HtmlReader} path="/azw3" />
+        <Route component={HtmlReader} path="/azw" />
         <Route component={HtmlReader} path="/txt" />
         <Route component={HtmlReader} path="/docx" />
         <Route component={HtmlReader} path="/md" />
@@ -62,6 +80,7 @@ const Router = () => {
         <Route component={HtmlReader} path="/htm" />
         <Route component={HtmlReader} path="/xml" />
         <Route component={HtmlReader} path="/xhtml" />
+        <Route component={HtmlReader} path="/mhtml" />
         <Route component={HtmlReader} path="/href" />
         <Route component={PDFReader} path="/pdf" />
         <Route component={_Redirect} path="/" />

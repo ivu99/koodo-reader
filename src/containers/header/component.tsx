@@ -8,7 +8,6 @@ import StorageUtil from "../../utils/serviceUtils/storageUtil";
 import UpdateInfo from "../../components/dialogs/updateDialog";
 import { restore } from "../../utils/syncUtils/restoreUtil";
 import { backup } from "../../utils/syncUtils/backupUtil";
-import { Tooltip } from "react-tippy";
 import { isElectron } from "react-device-detect";
 import { syncData } from "../../utils/syncUtils/common";
 import toast from "react-hot-toast";
@@ -24,7 +23,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       isdataChange: false,
     };
   }
-  componentDidMount() {
+  async componentDidMount() {
     if (isElectron) {
       const fs = window.require("fs");
       const path = window.require("path");
@@ -63,7 +62,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       //Detect data modification
       fs.readFile(sourcePath, "utf8", (err, data) => {
         if (err) {
-          console.error(err);
+          console.log(err);
           return;
         }
         const readerConfig = JSON.parse(data);
@@ -124,7 +123,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
 
       fs.readFile(sourcePath, "utf8", (err, data) => {
         if (err) {
-          console.error(err);
+          console.log(err);
           return;
         }
         const readerConfig = JSON.parse(data);
@@ -143,7 +142,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     if (StorageUtil.getReaderConfig("isFirst") !== "no") {
       this.props.handleTipDialog(true);
       this.props.handleTip(
-        "You need to manually change the storage location to the same sync folder on different computers. When you click the sync button, Koodo Reader will automatically upload or download the data from this folder according the timestamp."
+        "Sync function works with third-party cloud drive. You need to manually change the storage location to the same sync folder on different computers. When you click the sync button, Koodo Reader will automatically upload or download the data from this folder according the timestamp."
       );
       StorageUtil.setReaderConfig("isFirst", "no");
       return;
@@ -159,6 +158,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     fs.readFile(sourcePath, "utf8", async (err, data) => {
       if (err || !data) {
         this.syncToLocation();
+        return;
       }
       const readerConfig = JSON.parse(data);
 
@@ -211,14 +211,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
             }}
             style={{ left: "490px", top: "18px" }}
           >
-            <Tooltip
-              title={this.props.t("Sort by")}
-              position="top"
-              trigger="mouseenter"
-              distance={20}
-            >
-              <span className="icon-sort-desc header-sort-icon"></span>
-            </Tooltip>
+            <span className="icon-sort-desc header-sort-icon"></span>
           </div>
           <div
             className="setting-icon-container"
@@ -229,18 +222,12 @@ class Header extends React.Component<HeaderProps, HeaderState> {
               this.props.handleAbout(false);
             }}
           >
-            <Tooltip
-              title={this.props.t("Setting")}
-              position="top"
-              trigger="mouseenter"
-            >
-              <span
-                className="icon-setting setting-icon"
-                style={
-                  this.props.isNewWarning ? { color: "rgb(35, 170, 242)" } : {}
-                }
-              ></span>
-            </Tooltip>
+            <span
+              className="icon-setting setting-icon"
+              style={
+                this.props.isNewWarning ? { color: "rgb(35, 170, 242)" } : {}
+              }
+            ></span>
           </div>
           {isElectron && (
             <div
@@ -251,24 +238,12 @@ class Header extends React.Component<HeaderProps, HeaderState> {
               }}
               style={{ left: "635px" }}
             >
-              <Tooltip
-                title={this.props.t(
-                  this.state.isdataChange
-                    ? "Data change detected, whether to update?"
-                    : "Sync"
-                )}
-                position="top"
-                trigger="mouseenter"
-              >
-                <span
-                  className="icon-sync setting-icon"
-                  style={
-                    this.state.isdataChange
-                      ? { color: "rgb(35, 170, 242)" }
-                      : {}
-                  }
-                ></span>
-              </Tooltip>
+              <span
+                className="icon-sync setting-icon"
+                style={
+                  this.state.isdataChange ? { color: "rgb(35, 170, 242)" } : {}
+                }
+              ></span>
             </div>
           )}
         </>
@@ -286,16 +261,12 @@ class Header extends React.Component<HeaderProps, HeaderState> {
         >
           <div className="animation-mask"></div>
           {this.props.isCollapsed && this.state.width < 950 ? (
-            <Tooltip
-              title={this.props.t("Backup")}
-              position="top"
-              trigger="mouseenter"
-            >
+            <>
               <span
                 className="icon-share"
                 style={{ fontSize: "15px", fontWeight: 600 }}
               ></span>
-            </Tooltip>
+            </>
           ) : (
             <Trans>Backup</Trans>
           )}

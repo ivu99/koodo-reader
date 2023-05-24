@@ -64,20 +64,19 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
     let doc = getIframeDoc();
     if (!doc) return;
     doc.addEventListener("mousedown", this.openMenu);
+    doc.addEventListener("touchend", this.openMenu);
     if (this.props.currentBook.format === "PDF") {
       setTimeout(() => {
         this.renderHighlighters();
       }, 1000);
 
-      doc.addEventListener("mousewheel", () => {
+      doc.addEventListener("wheel", () => {
         this.renderHighlighters();
       });
     }
   };
   //新建高亮
   getHighlighter = () => {
-    // 注意点一
-    // 为了每次切换章节时都有与当前文档相关联的 pen
     let doc = getIframeDoc();
     if (!doc) return;
     this.highlighter = window.rangy.createHighlighter(doc);
@@ -238,12 +237,10 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
     if (!highlighters) return;
     let highlightersByChapter = highlighters.filter((item: any) => {
       return (
-        (item.chapterIndex === this.props.chapterIndex ||
-          item.chapter === this.props.chapter) &&
+        item.chapterIndex === this.props.chapterDocIndex &&
         item.bookKey === this.props.currentBook.key
       );
     });
-
     let pageArea = document.getElementById("page-area");
     if (!pageArea) return;
     let iframe = pageArea.getElementsByTagName("iframe")[0];
@@ -290,6 +287,7 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
           }
         }
       });
+    this.key = "";
     if (!iWin || !iWin.getSelection()) return;
     iWin.getSelection()?.empty(); // 清除文本选取
     // this.props.isOpenMenu &&
@@ -365,7 +363,7 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
     const PopupProps = {
       pageWidth: this.props.pageWidth,
       pageHeight: this.props.pageHeight,
-      chapterIndex: this.props.chapterIndex,
+      chapterDocIndex: this.props.chapterDocIndex,
       chapter: this.props.chapter,
     };
     return (
@@ -387,7 +385,7 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
               onClick={() => {
                 this.props.handleOpenMenu(false);
               }}
-              style={this.props.isChangeDirection ? { top: "170px" } : {}}
+              style={this.props.isChangeDirection ? { top: "180px" } : {}}
             ></span>
           </div>
           {this.props.isChangeDirection ? (

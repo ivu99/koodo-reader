@@ -4,7 +4,6 @@ import { sideMenu } from "../../constants/sideMenu";
 import { SidebarProps, SidebarState } from "./interface";
 import { withRouter } from "react-router-dom";
 import StorageUtil from "../../utils/serviceUtils/storageUtil";
-import { Tooltip } from "react-tippy";
 import { openExternalUrl } from "../../utils/serviceUtils/urlUtil";
 
 class Sidebar extends React.Component<SidebarProps, SidebarState> {
@@ -80,27 +79,24 @@ class Sidebar extends React.Component<SidebarProps, SidebarState> {
                   : "side-menu-selector "
               }
             >
-              <Tooltip
-                title={this.props.t(item.name)}
-                position="top"
-                trigger="mouseenter"
+              <div
+                className="side-menu-icon"
+                style={this.props.isCollapsed ? {} : { marginLeft: "38px" }}
               >
-                <div
-                  className="side-menu-icon"
-                  style={this.props.isCollapsed ? {} : { marginLeft: "38px" }}
-                >
-                  <span
-                    className={
-                      this.state.index === index
-                        ? `icon-${item.icon}  active-icon`
-                        : `icon-${item.icon}`
-                    }
-                    style={
-                      this.props.isCollapsed ? { marginLeft: "-25px" } : {}
-                    }
-                  ></span>
-                </div>
-              </Tooltip>
+                <span
+                  className={
+                    this.state.index === index
+                      ? `icon-${item.icon}  active-icon`
+                      : `icon-${item.icon}`
+                  }
+                  style={
+                    this.props.isCollapsed
+                      ? { position: "fixed", marginLeft: "-6px" }
+                      : {}
+                  }
+                ></span>
+              </div>
+
               <span style={this.props.isCollapsed ? { display: "none" } : {}}>
                 {this.props.t(item.name)}
               </span>
@@ -117,16 +113,7 @@ class Sidebar extends React.Component<SidebarProps, SidebarState> {
             this.handleCollapse(!this.state.isCollapsed);
           }}
         >
-          <Tooltip
-            title={this.props.t(
-              this.props.isCollapsed ? "Show sidebar" : "Collapse sidebar"
-            )}
-            position="top"
-            trigger="mouseenter"
-            distance={25}
-          >
-            <span className="icon-menu sidebar-list"></span>
-          </Tooltip>
+          <span className="icon-menu sidebar-list"></span>
         </div>
 
         <img
@@ -151,4 +138,4 @@ class Sidebar extends React.Component<SidebarProps, SidebarState> {
   }
 }
 
-export default withRouter(Sidebar);
+export default withRouter(Sidebar as any);

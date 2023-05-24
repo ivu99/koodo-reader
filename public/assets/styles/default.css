@@ -137,6 +137,7 @@ textarea::-ms-input-placeholder,
 .action-dialog-edit:hover,
 .backup-page-next:hover,
 .backup-page-list-item:hover,
+.restore-file:hover,
 .book-manage-title:hover,
 .copy-option:hover {
   background-color: rgba(75, 75, 75, 0.035);
@@ -171,6 +172,9 @@ textarea::-ms-input-placeholder,
 .book-cover-item-cover,
 .book-item-list-cover {
   background: rgba(255, 255, 255, 1);
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.18);
+}
+.book-item-list {
   box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.18);
 }
 .backup-page-backup-selector,

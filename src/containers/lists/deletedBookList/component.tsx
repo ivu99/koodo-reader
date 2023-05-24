@@ -90,21 +90,25 @@ class BookList extends React.Component<BookListProps, BookListState> {
       return this.props.viewMode === "list" ? (
         <BookListItem
           {...{
-            key: item.key,
+            key: index,
             book: item,
           }}
         />
       ) : this.props.viewMode === "card" ? (
         <BookCardItem
-          key={item.key}
-          book={item}
-          isSelected={this.props.selectedBooks.indexOf(item.key) > -1}
+          {...{
+            key: index,
+            book: item,
+            isSelected: this.props.selectedBooks.indexOf(item.key) > -1,
+          }}
         />
       ) : (
         <BookCoverItem
-          key={item.key}
-          book={item}
-          isSelected={this.props.selectedBooks.indexOf(item.key) > -1}
+          {...{
+            key: index,
+            book: item,
+            isSelected: this.props.selectedBooks.indexOf(item.key) > -1,
+          }}
         />
       );
     });

@@ -11,6 +11,7 @@ import { withRouter } from "react-router-dom";
 import toast from "react-hot-toast";
 import { HtmlMouseEvent } from "../../../utils/serviceUtils/mouseEvent";
 import storageUtil from "../../../utils/serviceUtils/storageUtil";
+import EdgeUtil from "../../../utils/serviceUtils/edgeUtil";
 declare var document: any;
 
 class OperationPanel extends React.Component<
@@ -47,7 +48,7 @@ class OperationPanel extends React.Component<
           ((pageProgress.totalPage - pageProgress.currentPage) * this.speed) /
           1000,
       });
-      this.props.handleShowBookmark(false);
+      this.handleDisplayBookmark();
 
       HtmlMouseEvent(
         this.props.htmlBook.rendition,
@@ -56,6 +57,8 @@ class OperationPanel extends React.Component<
       );
     });
   }
+
+  handleShortcut() {}
   // 点击切换全屏按钮触发
   handleScreen() {
     StorageUtil.getReaderConfig("isFullscreen") !== "yes"
@@ -66,11 +69,19 @@ class OperationPanel extends React.Component<
   handleExit() {
     StorageUtil.setReaderConfig("isFullscreen", "no");
     this.props.handleReadingState(false);
+    this.props.handleSearch(false);
     window.speechSynthesis.cancel();
+    EdgeUtil.pauseAudio();
     ReadingTime.setTime(this.props.currentBook.key, this.props.time);
     this.handleExitFullScreen();
     if (this.props.htmlBook) {
       this.props.handleHtmlBook(null);
+    }
+    if (StorageUtil.getReaderConfig("isOpenInMain") === "yes") {
+      this.props.history.push("/manager/home");
+      document.title = "Koodo Reader";
+    } else {
+      window.close();
     }
   }
   //控制进入全屏
@@ -91,7 +102,7 @@ class OperationPanel extends React.Component<
     }
     StorageUtil.setReaderConfig("isFullscreen", "no");
   }
-  handleAddBookmark = async () => {
+  handleAddBookmark = () => {
     let bookKey = this.props.currentBook.key;
     let bookLocation = RecordLocation.getHtmlLocation(bookKey);
     let text = bookLocation.text;
@@ -100,7 +111,7 @@ class OperationPanel extends React.Component<
 
     let cfi = JSON.stringify(bookLocation);
     if (!text) {
-      text = await this.props.htmlBook.rendition.visibleText();
+      text = this.props.htmlBook.rendition.visibleText().join(" ");
     }
     text = text
       .replace(/\s\s/g, "")
@@ -124,7 +135,23 @@ class OperationPanel extends React.Component<
     toast.success(this.props.t("Add Successfully"));
     this.props.handleShowBookmark(true);
   };
-
+  handleDisplayBookmark() {
+    this.props.handleShowBookmark(false);
+    let bookLocation: {
+      text: string;
+      count: string;
+      chapterTitle: string;
+      chapterDocIndex: string;
+      chapterHref: string;
+      percentage: string;
+      cfi: string;
+    } = RecordLocation.getHtmlLocation(this.props.currentBook.key);
+    this.props.bookmarks.forEach((item) => {
+      if (item.cfi === JSON.stringify(bookLocation)) {
+        this.props.handleShowBookmark(true);
+      }
+    });
+  }
   render() {
     return (
       <div className="book-operation-panel">
@@ -159,13 +186,6 @@ class OperationPanel extends React.Component<
           className="exit-reading-button"
           onClick={() => {
             this.handleExit();
-
-            if (StorageUtil.getReaderConfig("isOpenInMain") === "yes") {
-              this.props.history.push("/manager/home");
-              document.title = "Koodo Reader";
-            } else {
-              window.close();
-            }
           }}
         >
           <span className="icon-exit exit-reading-icon"></span>
@@ -206,4 +226,4 @@ class OperationPanel extends React.Component<
   }
 }
 
-export default withRouter(OperationPanel);
+export default withRouter(OperationPanel as any);
